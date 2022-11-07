@@ -18,12 +18,11 @@ target_list=["First","Last","Near","Far","Strongest","Weakest","Random"]
 def anim_need_money():
     def need_money_anim():
             orgx=gameplay.text_displayers[0].rect.x; x=0;clock_clock = pygame.time.Clock();gameplay.text_displayers[0].text_color=(255,0,0)
-            def easeOutExpo(x):return 1 - pow(2, -10 * x)
-            while x<1: gameplay.text_displayers[0].rect.x=orgx+easeOutExpo(x)*5; x+=0.1; clock_clock.tick(60)
-            x=0
-            while x<1: gameplay.text_displayers[0].rect.x=orgx+(easeOutExpo(x)*-10); x+=0.1; clock_clock.tick(60)
-            x=0
-            while x<1: gameplay.text_displayers[0].rect.x=orgx+(easeOutExpo(x)*5); x+=0.1; clock_clock.tick(60)
+            easeOutExpo = lambda x_fl: 1 - pow(2, -10 * x_fl)
+            def function_loop(rate_of_ease):
+                x=0
+                while x<1: gameplay.text_displayers[0].rect.x=orgx+easeOutExpo(x)*rate_of_ease; x+=0.1; clock_clock.tick(60)
+            function_loop(5);function_loop(-10);function_loop(5)
             gameplay.text_displayers[0].text_color=(0,0,0);gameplay.text_displayers[0].f_suf = [gameplay.text_displayers[0].font.render(gameplay.text_displayers[0].text, gameplay.text_displayers[0].antialias, gameplay.text_displayers[0].text_color)];gameplay.text_displayers[0].rect.x=orgx
     need_money_anim_thr=threading.Thread(target=need_money_anim); need_money_anim_thr.start()
 def upgrade(data):
