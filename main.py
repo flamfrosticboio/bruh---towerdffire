@@ -74,12 +74,15 @@ class Info_Slide:
 loading_progress=0.15
 class Slc:
     def __init__(self,area_size,area_grid,parent):self.image=pygame.Surface((round(area_size[0]/area_grid[0]+1),round(area_size[1]/area_grid[1]+1)));self.image.set_alpha(50);self.rect=self.image.get_rect(center=(-100,-100));self.area_grid=area_grid;self.parent=parent;self.area_size=self.parent.rect.size;self.inner_img=None;self.cc_slot=None;self.at_area=False;self.placing=False;self.selecting=False;self.info__=None;self.turret_range=None
+    def get_rChords(self, mouse_pos):
+        rx, ry = floor(mouse_pos[0] / (self.area_size[0] / self.area_grid[0])), floor(mouse_pos[1] / (self.area_size[1] / self.area_grid[1]))
+        if rx >= self.area_grid[0]: rx = self.area_grid[0] - 1
+        if ry >= self.area_grid[1]: rx = self.area_grid[1] - 1
+        return rx, ry
     def run__(self,mouse_pos,c_slot,c_dir):
         if self.info__ and self.selecting: self.info__.update()
         if self.parent.rect.right>=mouse_pos[0]>=self.parent.rect.left and self.parent.rect.bottom>=mouse_pos[1]>=self.parent.rect.top:
-            rx,ry=floor(mouse_pos[0]/(self.area_size[0]/self.area_grid[0])),floor(mouse_pos[1]/(self.area_size[1]/self.area_grid[1]))
-            if rx>=self.area_grid[0]:rx=self.area_grid[0]-1
-            if ry>=self.area_grid[1]:rx=self.area_grid[1]-1
+            rx, ry = self.get_rChords(mouse_pos)
             self.rect.topleft=self.area_size[0]/self.area_grid[0]*rx,self.area_size[1]/self.area_grid[1]*ry
             if c_slot and(not self.cc_slot or self.cc_slot!=c_slot):self.cc_slot=c_slot;self.inner_img=self.cc_slot((0,0),0,0).image
             elif not c_slot:self.cc_slot=None;self.inner_img=None;self.image.fill((0,0,0))
@@ -87,9 +90,7 @@ class Slc:
             self.at_area=True;return
         self.at_area=False
     def select__(self,mouse_pos,area_gameplay_data,on_top_button):
-        rx, ry = floor(mouse_pos[0] / (self.area_size[0] / self.area_grid[0])), floor(mouse_pos[1] / (self.area_size[1] / self.area_grid[1]))
-        if rx>=self.area_grid[0]:rx=self.area_grid[0]-1
-        if ry>=self.area_grid[1]:rx=self.area_grid[1]-1
+        rx, ry = self.get_rChords(mouse_pos)
         area_n = self.area_grid[0]*ry+rx;obj_ = area_gameplay_data[area_n]
         if obj_ and issubclass(type(obj_), Turret):
             if not self.selecting:self.selecting=True;self.info__=Info_Slide(obj_);gameplay.gameplay_items.append(self.info__)
@@ -97,9 +98,7 @@ class Slc:
             else:self.selecting=False;gameplay.gameplay_items.remove(self.info__)
         elif self.selecting and self.info__ and not on_top_button: self.selecting=False;gameplay.gameplay_items.remove(self.info__)
     def place__(self,mouse_pos,obj,area_gameplay_data,direction,gameplay_items,money):
-        rx,ry=floor(mouse_pos[0]/(self.area_size[0]/self.area_grid[0])),floor(mouse_pos[1]/(self.area_size[1]/self.area_grid[1]))
-        if rx>=self.area_grid[0]:rx=self.area_grid[0]-1
-        if ry>=self.area_grid[1]:rx=self.area_grid[1]-1
+        rx, ry = self.get_rChords(mouse_pos)
         area_n=self.area_grid[0]*ry+rx
         if obj and not area_gameplay_data[area_n]:
             obj_=obj(self.rect.topleft,area_n,direction)
@@ -291,8 +290,7 @@ def gameplay(level):
                     if not on_top_button:
                         on_top_button=bt.get_if_clicked(mouse_pos)
                         if val:slc.placing=True
-                if slc.info__ and slc.selecting and not on_top_button:
-                    player_data['money'], on_top_button = slc.info__.pressed(mouse_pos, player_data['money'])
+                if slc.info__ and slc.selecting and not on_top_button: player_data['money'], on_top_button = slc.info__.pressed(mouse_pos, player_data['money'])
                 if not on_top_button:
                     if slc.placing:gameplay_area_data,gameplay_items,c_slot,player_data['money']=slc.place__(mouse_pos, c_slot, gameplay_area_data, c_dir, gameplay_items, player_data['money']);slc.run__(mouse_pos, c_slot, c_dir)
                     else:slc.select__(mouse_pos, gameplay_area_data, on_top_button)
@@ -318,8 +316,7 @@ def gameplay(level):
         for enemy in enemies:
             enemy.move()
             if enemy.dead:
-                enemies.remove(enemy);gameplay_items.remove(enemy)
-                if not enemy.at_end: player_data['money']+=enemy.death_income
+                enemies.remove(enemy);gameplay_items.remove(enemy);player_data['money']+=enemy.death_income
         for item in gameplay_items:
             if issubclass(type(item),Turret):item.shoot(enemies, turn_points)
             elif isinstance(item, Bullet):item.move()
