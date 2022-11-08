@@ -51,8 +51,8 @@ class BaseButton:
         return False
     def run_when_clicked(self, mouse_pos):
         if self.get_if_clicked(mouse_pos):
-            return self.on_clicked()
-        return None
+            self.pressed=True; return self.on_clicked()
+        self.pressed=False; return None
 class BasicFrame:
     """
     Create simple Frame for pygame
@@ -75,6 +75,7 @@ class BasicFrame:
         self.blit_parent_mode = blit_as_local_to_parent
         self.offset = pos
         self.parent_obj = parent
+        self.enabled = True
         if not parent: self.parent = {"surface":pygame.display.get_surface(), "rect":pygame.display.get_surface().get_rect()}
         else: self.parent = {"surface":parent.image, "rect":parent.rect}
         if blit_as_local_to_parent: self.blit_to = parent.image
@@ -167,6 +168,7 @@ class ImageButton(ImageFrame, BaseButton):
         super(ImageButton, self).__init__(*args, **kwargs)
         self.function = function
         self.args = function_args
+        self.pressed = False
 class AdvancedImageButton(ImageButton):
     """Create an Advance Image Button"""
     def __init__(self, *args, f_surfaces=None, b_surfaces=None, ext_anchor="topleft", **kwargs):
@@ -208,6 +210,7 @@ class TextButton(TextFrame, BaseButton):
         super(TextButton, self).__init__(*args, **kwargs)
         self.function = function
         self.args = function_args
+        self.pressed = False
 class TextBox(TextFrame):
     """Create a TextBox that you can type with it"""
     def __init__(self, *args, shadow_text_color=(50, 50, 50), typing_indicator="Type here",**kwargs):

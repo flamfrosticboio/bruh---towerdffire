@@ -1,8 +1,10 @@
 import random
+from cachetools import cached, TTLCache
 import sys,json,time,pygame,threading,base_gui,math
 from math import floor
 # load initial #
 pygame.init()
+cache = TTLCache(maxsize=100, ttl=86400)
 root_window=pygame.display.set_mode((1024,576),pygame.RESIZABLE);screen=root_window.copy().convert_alpha();clock=pygame.time.Clock()
 loading_font=pygame.font.Font('assets/ARLRDBD.TTF',20);loading_progress=0.0
 # loading screen #
@@ -119,6 +121,7 @@ class EndPoint:
 class StartPoint:
     def __init__(self,pos,area,direction):self.image=pygame.image.load(assets['startpoint']);self.rect=self.image.get_rect(topleft=pos);self.area=area
 loading_progress=0.3
+@cached(cache)
 def move_condition(direction,c_p_movement):
     if direction==0:
         if c_p_movement==(1,0):c_p_movement=0,-1
@@ -223,18 +226,23 @@ def basic_render_sprites(sprites):
     if not sprites:return
     if isinstance(sprites,list):
         for sprite in sprites:
+            if hasattr(sprite, "enabled") and not sprite.enabled: return
             if sprite:screen.blit(sprite.image,sprite.rect)
     elif isinstance(sprites,dict):
         for sprite in sprites:
-            if sprites[sprite]:screen.blit(sprites[sprite].image,sprites[sprite].rect)
+            if sprites[sprite]:
+                if hasattr(sprites[sprite], "enabled") and not sprites[sprite].enabled: return
+                screen.blit(sprites[sprite].image,sprites[sprite].rect)
 def advance_render_sprites(sprites):
     basic_render_sprites(sprites)
     for sprite in sprites:
+        if hasattr(sprite, "enabled") and not sprite.enabled: return
         if not hasattr(sprite,'ext_mode'):return
         for ex_img in sprite.f_suf:screen.blit(ex_img, getattr(sprite.rect, sprite.ext_anchor))
 def advance_render_sprites_text_exclusive(sprites):
     basic_render_sprites(sprites)
     for sprite in sprites:
+        if hasattr(sprite, "enabled") and not sprite.enabled: return
         if not hasattr(sprite,'ext_mode'):return
         for ex_img in sprite.f_suf:screen.blit(ex_img, (sprite.rect.left + getattr(sprite.image.get_rect(), sprite.ext_anchor)[0]-sprite.f_suf[0].get_rect().centerx, sprite.rect.top + getattr(sprite.image.get_rect(), sprite.ext_anchor)[1]-sprite.f_suf[0].get_rect().centery))
 def text_displayer_function(text_displayers):text_displayers[0].text="Money: "+str(gameplay.player_data['money']); text_displayers[0].f_suf=[text_displayers[0].font.render(text_displayers[0].text, text_displayers[0].antialias, text_displayers[0].text_color)]; advance_render_sprites_text_exclusive(text_displayers)
@@ -245,7 +253,8 @@ def gameplay(level):
     gameplay.gameplay_items=gameplay_items=[];gameplay.enemies=enemies=[];startpoint=None;endpoint=None;debug_items=[debug_fps()]
     gameplay.player_data=player_data={'money':200}; wave_counter = 1; wavedisfunc = lambda wave_num: ("Wave "+str(wave_num), "assets/ARLRDBD.TTF", 14, (screen.get_width()/2-50,screen.get_height()-115), (100,15), (0,0,0))
     gameplay.text_displayers=text_displayers=[base_gui.TextFrame("Money: "+str(player_data['money']), "assets/ARLRDBD.TTF", 14, (screen.get_width()/2-50,screen.get_height()-95), (100,15), (0,0,0), text_alignment="center"), base_gui.TextFrame(*wavedisfunc(wave_counter), text_alignment="center")]
-    gameplay.buttons_for_gameplay=buttons_for_gameplay=[base_gui.TextButton(lambda: print("HALLO WORLD!"), "Skip wave", "assets/ARLRDBD.TTF", 15, (screen.get_width()/2-50,screen.get_height()-140), (100,20), (0,0,0), text_alignment="center", background=(255,128,0))];
+    def skip_wave():print("skiped wave!");return True
+    gameplay.buttons_for_gameplay=buttons_for_gameplay=[base_gui.TextButton(skip_wave, "Skip wave", "assets/ARLRDBD.TTF", 15, (screen.get_width()/2-50,screen.get_height()-140), (100,20), (0,0,0), text_alignment="center", background=(255,128,0))];
     def change_slot(obj):nonlocal c_slot;c_slot = obj; return obj
     slots_data = [Turret, AutoRifle, None, None, None, None, None, None];slot_img=pygame.image.load(assets['slot_frame']).convert_alpha()
     slots_bt=[base_gui.AdvancedImageButton(change_slot,slot_img,(-220+i*60,-25),slot_img.get_size(),(0,0,0),anchor='midbottom',function_args=v,f_surfaces=[pygame.transform.scale(v((0,0),0,0).image,slot_img.get_size())for ii in range(1)if v])for(i,v)in enumerate(slots_data)]
@@ -270,13 +279,20 @@ def gameplay(level):
     def spawn_enemies():
         nonlocal wave_counter
         for enem_in_wave in level_enemies:
+            buttons_for_gameplay[0].enabled = False
             for enemies_ in enem_in_wave:
                 time.sleep(level['spawn_interval']);en_=None
                 if enemies_ == 0:en_=Enemy(startpoint, turn_points, endpoint)
                 if enemies_ == 1:en_=Jello(startpoint, turn_points, endpoint)
                 if enemies_ == 2:en_=Heavy(startpoint, turn_points, endpoint)
                 gameplay_items.append(en_);enemies.append(en_)
-            time.sleep(level["wave_duration"])
+            print("Waiting for next wave")
+            buttons_for_gameplay[0].enabled = True
+            end_time = time.time() + 20
+            while round(time.time(), 2) < end_time:
+                if buttons_for_gameplay[0].pressed: break
+                time.sleep(0.1)
+            buttons_for_gameplay[0].pressed = False
             wave_counter+=1; text_displayers[1] = base_gui.TextFrame(*wavedisfunc(wave_counter), text_alignment="center")
     spawn_thread = threading.Thread(target=spawn_enemies);spawn_thread.daemon=True;spawn_thread.start()
     while 1:
@@ -290,6 +306,9 @@ def gameplay(level):
                     if not on_top_button:
                         on_top_button=bt.get_if_clicked(mouse_pos)
                         if val:slc.placing=True
+                if buttons_for_gameplay[0].enabled:
+                    btgmplystat = buttons_for_gameplay[0].run_when_clicked(mouse_pos)
+                    if btgmplystat: on_top_button = True
                 if slc.info__ and slc.selecting and not on_top_button: player_data['money'], on_top_button = slc.info__.pressed(mouse_pos, player_data['money'])
                 if not on_top_button:
                     if slc.placing:gameplay_area_data,gameplay_items,c_slot,player_data['money']=slc.place__(mouse_pos, c_slot, gameplay_area_data, c_dir, gameplay_items, player_data['money']);slc.run__(mouse_pos, c_slot, c_dir)
@@ -380,6 +399,6 @@ with open("assets/data/levels.dat", 'r') as level_dat: level_data = json.loads(l
 #
 # # # Overall Progress: 35% to completion # # #
 
-# TODO: add lives and wave system, add main menu, add music, add more enemies and turrets, add inventory, add more assets, add rocks and trees in map,
+# TODO: !! animate wave skip button !!, #add lives system, add main menu, add music, add more enemies and turrets, add inventory, add more assets, add rocks and trees in map,
 #  add maps, add logic, change upgrade system mechanic (its just a small repeating code), cleanup and revise code in slc and gameplay,
 
