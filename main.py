@@ -19,7 +19,7 @@ loading_progress=0.1
 target_list=["First","Last","Near","Far","Strongest","Weakest","Random"]
 def anim_need_money():
     def need_money_anim():
-            orgx=gameplay.text_displayers[0].rect.x; x=0;clock_clock = pygame.time.Clock();gameplay.text_displayers[0].text_color=(255,0,0)
+            orgx=gameplay.text_displayers[0].rect.x;clock_clock = pygame.time.Clock();gameplay.text_displayers[0].text_color=(255,0,0)
             easeOutExpo = lambda x_fl: 1 - pow(2, -10 * x_fl)
             def function_loop(rate_of_ease):
                 x=0
@@ -27,6 +27,21 @@ def anim_need_money():
             function_loop(5);function_loop(-10);function_loop(5)
             gameplay.text_displayers[0].text_color=(0,0,0);gameplay.text_displayers[0].f_suf = [gameplay.text_displayers[0].font.render(gameplay.text_displayers[0].text, gameplay.text_displayers[0].antialias, gameplay.text_displayers[0].text_color)];gameplay.text_displayers[0].rect.x=orgx
     need_money_anim_thr=threading.Thread(target=need_money_anim); need_money_anim_thr.start()
+def anim_toggle_skip_button(toggle):
+    current_rate = -150
+    def anim(rate, toggle):
+        orgy=gameplay.buttons_for_gameplay[0].rect.y;clock_clock = pygame.time.Clock()
+        easeOutBack = lambda x_fl: 1 + (1.70158+1) * pow(x_fl - 1, 3) + 1.70158 * pow(x_fl - 1, 2)
+        easeInBack = lambda x: (1.70158+1) * x * x * x - 1.70158 * x * x
+        def function_loop(rate_of_ease):
+            nonlocal toggle
+            x=0; type_ease = easeOutBack
+            if toggle: type_ease = easeInBack
+            while x<1: gameplay.buttons_for_gameplay[0].rect.y=orgy+type_ease(x)*rate_of_ease; x+=0.02; clock_clock.tick(60)
+        function_loop(rate)
+        if toggle: gameplay.buttons_for_gameplay[0].enabled = False
+    if toggle: current_rate = 150 # means going back to bottom
+    anim_thr=threading.Thread(target=anim, args=(current_rate, toggle, )); anim_thr.start()
 def upgrade(data):
     turret, money = data
     if money >= turret.cost[2] and not isinstance(turret.level, str) and not turret.level >= 5:
@@ -278,8 +293,8 @@ def gameplay(level):
     level_enemies = level['enemies']
     def spawn_enemies():
         nonlocal wave_counter
+        buttons_for_gameplay[0].enabled = False
         for enem_in_wave in level_enemies:
-            buttons_for_gameplay[0].enabled = False
             for enemies_ in enem_in_wave:
                 time.sleep(level['spawn_interval']);en_=None
                 if enemies_ == 0:en_=Enemy(startpoint, turn_points, endpoint)
@@ -288,12 +303,19 @@ def gameplay(level):
                 gameplay_items.append(en_);enemies.append(en_)
             print("Waiting for next wave")
             buttons_for_gameplay[0].enabled = True
-            end_time = time.time() + 20
+            buttons_for_gameplay[0].rect.y = 586
+            anim_toggle_skip_button(False)
+            end_time = round(time.time(), 2) + 20
             while round(time.time(), 2) < end_time:
+                buttons_for_gameplay[0].text = f"Skip - {str(abs(round(time.time())-round(end_time)))}"
+                buttons_for_gameplay[0].f_suf=[buttons_for_gameplay[0].font.render(buttons_for_gameplay[0].text, buttons_for_gameplay[0].antialias, buttons_for_gameplay[0].text_color)]
                 if buttons_for_gameplay[0].pressed: break
                 time.sleep(0.1)
             buttons_for_gameplay[0].pressed = False
+            buttons_for_gameplay[0].text = "Skip"
+            buttons_for_gameplay[0].f_suf=[buttons_for_gameplay[0].font.render(buttons_for_gameplay[0].text, buttons_for_gameplay[0].antialias, buttons_for_gameplay[0].text_color)]
             wave_counter+=1; text_displayers[1] = base_gui.TextFrame(*wavedisfunc(wave_counter), text_alignment="center")
+            anim_toggle_skip_button(True)
     spawn_thread = threading.Thread(target=spawn_enemies);spawn_thread.daemon=True;spawn_thread.start()
     while 1:
         mouse_pos = pygame.mouse.get_pos()
@@ -399,6 +421,8 @@ with open("assets/data/levels.dat", 'r') as level_dat: level_data = json.loads(l
 #
 # # # Overall Progress: 35% to completion # # #
 
-# TODO: !! animate wave skip button !!, #add lives system, add main menu, add music, add more enemies and turrets, add inventory, add more assets, add rocks and trees in map,
+# TODO: add lives system
+#
+#  , add main menu, add music, add more enemies and turrets, add enemy health bar, add inventory, add more assets, add rocks and trees in map,
 #  add maps, add logic, change upgrade system mechanic (its just a small repeating code), cleanup and revise code in slc and gameplay,
 
